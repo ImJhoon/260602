@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Supabase Board</title>
+    <!-- supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 8px;
+        align-items: start;
+      }
+
+      textarea {
+        resize: none;
+      }
+    </style>
+  </head>
+  <body>
+    <details>
+      <summary>회원가입</summary>
+      <form id="joinForm">
+        <input type="email" name="join-email" placeholder="123@gmail.com" />
+        <input
+          type="password"
+          name="join-password"
+          placeholder="6자리 이상"
+          required
+        />
+        <button>가입</button>
+      </form>
+    </details>
+    <details>
+      <summary>로그인</summary>
+      <form id="loginForm">
+        <input
+          name="login-email"
+          type="email"
+          placeholder="abc@abc.com"
+          required
+        />
+        <input
+          name="login-password"
+          type="password"
+          placeholder="6자리 이상"
+          required
+        />
+        <button>로그인</button>
+      </form>
+    </details>
+    <details>
+      <summary>게시글 작성</summary>
+      <form id="writeForm">
+        <label>제목<input type="text" name="title" required /></label>
+        <label>내용<textarea name="content" required></textarea></label>
+        <button>작성</button>
+      </form>
+    </details>
+    <details open>
+      <h1>게시글 목록</h1>
+      <section id="postContainer"></section>
+    </details>
+    <script>
+      const SUPABASE_URL = "https://fcvbyqrigsignzghsahk.supabase.co";
+      const SUPABASE_PUB_KEY = "sb_publishable_SD2z5koGVLcx0UzhHge4Gw_vo3IEYKk";
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUB_KEY);
+      console.log(sb);
+
+      const joinForm = document.querySelector("#joinForm");
+      joinForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        console.log(...formData);
+        const email = formData.get("join-email");
+        const password = formData.get("join-password");
+        const { data, error } = await sb.auth.signUp({
+          email,
+          password,
+        });
+        console.log("data", data);
+        console.log("error", error);
+      });
+
+      const loginForm = document.querySelector("#loginForm");
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        console.log(...formData);
+        const email = formData.get("login-email");
+        const password = formData.get("login-password");
+        const { data, error } = await sb.auth.signInWithPassword({
+          email,
+          password,
+        });
+        console.log("data", data);
+        console.log("error", error);
+        if (error) {
+          console.log("로그인 에러 발생");
+          return;
+        }
+        // XSS 우려 있으나 개발 편의상 지금은 여기에 저장
+        // if (data.access_token) {
+        //   localStorage.setItem("sb_access_token", data.access_token);
+        //   localStorage.setItem("sb_refresh_token", data.refresh_token);
+        //   console.log("토큰 저장 완료");
+        // }
+      });
+
+      const writeForm = document.querySelector("#writeForm");
+
+      writeForm.addEventListener("submit", async (event) => {
+        console.log("writeForm");
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const title = formData.get("title");
+        const content = formData.get("content");
+        console.log(...formData);
+        const { data, error } = await sb
+          .from("posts")
+          .insert([
+            {
+              title,
+              content,
+            },
+          ])
+          .select();
+        if (error) console.log("error", error);
+        console.log("data", data);
+      });
+
+      const postContainer = document.querySelector("#postContainer");
+      document.addEventListener("DOMContentLoaded", async () => {
+        console.log("DOM 로드 완료");
+        await renderPosts();
+        console.log("화면 렌더링 완료");
+      });
+
+      async function renderPosts() {
+        const { data, error } = await sb.from("posts").select("*");
+
+        if (error) console.log("error", error);
+        console.log("data", data);
+        postContainer.innerHTML = "";
+        for (const v of data) {
+          console.log(v);
+          // TODO : 과제 - user_id(uuid) => user email을 표시하게
+          
+          // 💡 수정된 부분: 반복문 안에서 매번 새로운 div를 만들어야 합니다!
+          const post = document.createElement("div");
+          
+          post.innerHTML = `
+            <h3>${v.title}</h3>
+            <p>작성자 : ${v.user_id}</p>
+            <p>작성내용 : ${v.content}</p>
+            <p>작성일시 : ${v.created_at}</p>
+          `;
+          
+          // 💡 수정된 부분: 만들어진 새 div를 컨테이너에 바로바로 추가합니다.
+          postContainer.append(post);
+        }
+      }
+    </script>
+  </body>
+</html>
